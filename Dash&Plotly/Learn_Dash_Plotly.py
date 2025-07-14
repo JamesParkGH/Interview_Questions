@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import sqlite3
 import numpy as np
+import dash_ag_grid as dag
 from datetime import datetime, timedelta
 
 # Initialize Dash app
@@ -160,6 +161,42 @@ app.layout = html.Div([
                 ], style={'width': '50%', 'display': 'inline-block'}),
             ]),
             
+            # Data Table Section
+            html.Div([
+                html.H3("📋 Detailed Sales Data", style={'color': '#34495e', 'marginTop': '30px', 'marginBottom': '15px'}),
+                html.Div([
+                    dag.AgGrid(
+                        id="sales-data-table",
+                        columnDefs=[
+                            {"field": "date", "headerName": "Date", "sortable": True, "filter": True, "width": 120},
+                            {"field": "product", "headerName": "Product", "sortable": True, "filter": True, "width": 130},
+                            {"field": "category", "headerName": "Category", "sortable": True, "filter": True, "width": 120},
+                            {"field": "region", "headerName": "Region", "sortable": True, "filter": True, "width": 100},
+                            {"field": "quantity", "headerName": "Quantity", "sortable": True, "filter": True, "type": "numericColumn", "width": 110},
+                            {"field": "unit_price", "headerName": "Unit Price ($)", "sortable": True, "filter": True, "type": "numericColumn", "width": 130,
+                             "valueFormatter": {"function": "d3.format('$,.2f')(params.value)"}},
+                            {"field": "total_sales", "headerName": "Total Sales ($)", "sortable": True, "filter": True, "type": "numericColumn", "width": 140,
+                             "valueFormatter": {"function": "d3.format('$,.2f')(params.value)"}}
+                        ],
+                        defaultColDef={
+                            "resizable": True, 
+                            "sortable": True, 
+                            "filter": True,
+                            "floatingFilter": True
+                        },
+                        rowData=[],
+                        dashGridOptions={
+                            "pagination": True,
+                            "paginationPageSize": 20,
+                            "domLayout": "autoHeight",
+                            "rowSelection": "multiple"
+                        },
+                        style={"height": "500px", "width": "100%"}
+                    )
+                ], style={'backgroundColor': 'white', 'borderRadius': '10px', 'padding': '15px', 
+                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'})
+            ], style={'marginTop': '20px'}),
+            
         ], style={'width': '70%', 'float': 'right', 'padding': '10px'})
     ], style={'overflow': 'hidden'}),
     
@@ -171,7 +208,8 @@ app.layout = html.Div([
      Output('sales-trend-chart', 'figure'),
      Output('product-performance-chart', 'figure'),
      Output('regional-distribution-chart', 'figure'),
-     Output('category-breakdown-chart', 'figure')],
+     Output('category-breakdown-chart', 'figure'),
+     Output('sales-data-table', 'rowData')],
     [Input('product-dropdown', 'value'),
      Input('category-dropdown', 'value'),
      Input('region-dropdown', 'value'),
@@ -252,7 +290,12 @@ def update_dashboard(selected_product, selected_category, selected_region, start
                          labels={'total_sales': 'Total Sales ($)', 'category': 'Category'})
     category_fig.update_layout(template='plotly_white')
     
-    return kpi_cards, sales_trend_fig, product_performance_fig, regional_fig, category_fig
+    # 5. Prepare data for AG Grid table
+    table_data = filtered_df.copy()
+    table_data['date'] = table_data['date'].dt.strftime('%Y-%m-%d')  # Format date for display
+    table_data = table_data.sort_values('date', ascending=False)  # Most recent first
+    
+    return kpi_cards, sales_trend_fig, product_performance_fig, regional_fig, category_fig, table_data.to_dict('records')
 
 if __name__ == '__main__':
     app.run(debug=True)
